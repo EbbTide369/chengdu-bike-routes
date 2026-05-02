@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>成都骑行路线合集 · 东沙市井线 + 南线 + 西线</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+
+  #app { display:flex; height:100%; }
+
+  /* Sidebar */
+  #sidebar {
+    width: 320px; min-width: 320px;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+    z-index: 10;
+    box-shadow: 2px 0 20px rgba(0,0,0,0.4);
+  }
+  #sidebar-header {
+    background: linear-gradient(135deg, #0f3460, #16213e);
+    padding: 24px 20px 16px;
+    border-bottom: 1px solid #2a2a4a;
+  }
+  #sidebar-header h1 {
+    font-size: 20px; font-weight: 700; color: #fff; letter-spacing: 1px;
+  }
+  #sidebar-header .subtitle {
+    font-size: 13px; color: #2ecc71; margin-top: 4px;
+  }
+
+  /* Route tabs */
+  #route-tabs {
+    display: flex;
+    border-bottom: 1px solid #2a2a4a;
+  }
+  .route-tab {
+    flex: 1; padding: 12px 8px; text-align: center;
+    font-size: 13px; color: #777; cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .route-tab:hover { color: #ccc; }
+  .route-tab.active { color: #fff; border-bottom-color: #2ecc71; }
+  .route-tab.east.active { border-bottom-color: #2ecc71; color: #2ecc71; }
+  .route-tab.south.active { border-bottom-color: #3498db; color: #3498db; }
+  .route-tab.west.active { border-bottom-color: #e67e22; color: #e67e22; }
+  .route-tab .dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    margin-right: 4px; vertical-align: middle;
+  }
+  .route-tab.east .dot { background: #2ecc71; }
+  .route-tab.south .dot { background: #3498db; }
+  .route-tab.west .dot { background: #e67e22; }
+
+  #route-info {
+    padding: 16px 20px;
+    border-bottom: 1px solid #2a2a4a;
+    transition: all 0.3s;
+  }
+  #route-info .stat {
+    display: flex; justify-content: space-between;
+    font-size: 13px; color: #aaa; padding: 3px 0;
+  }
+  #route-info .stat span:last-child { font-weight: 600; }
+  #route-info.east .stat span:last-child { color: #2ecc71; }
+  #route-info.south .stat span:last-child { color: #3498db; }
+  #route-info.west .stat span:last-child { color: #e67e22; }
+
+  #waypoints { flex:1; overflow-y:auto; padding:8px 0; }
+  #waypoints h3 {
+    padding: 12px 20px 6px;
+    font-size: 13px; color: #2ecc71;
+    text-transform: uppercase; letter-spacing: 2px;
+  }
+  .waypoint {
+    display: flex; align-items: center;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: background 0.2s;
+    border-left: 3px solid transparent;
+  }
+  .waypoint:hover { background: #2a2a4a; border-left-color: #2ecc71; }
+  .waypoint.active { background: #2a2a4a; border-left-color: #2ecc71; }
+  .wp-num {
+    width: 26px; height: 26px; border-radius: 50%;
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+    margin-right: 12px; flex-shrink: 0;
+  }
+  .wp-num.east { background: #2ecc71; }
+  .wp-num.south { background: #3498db; }
+  .wp-num.west { background: #e67e22; }
+  .wp-info { overflow:hidden; }
+  .wp-name { font-size: 14px; color: #ddd; }
+  .wp-addr { font-size: 11px; color: #777; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  #sidebar-footer {
+    padding: 12px 20px;
+    border-top: 1px solid #2a2a4a;
+    font-size: 11px; color: #555; text-align: center;
+  }
+
+  /* Map */
+  #map-container { flex:1; position:relative; }
+  #map { width:100%; height:100%; }
+
+  .map-badge {
+    position: absolute; top: 16px; right: 16px;
+    background: rgba(26,26,46,0.9);
+    color: #2ecc71;
+    padding: 10px 16px; border-radius: 8px;
+    font-size: 13px; font-weight: 600;
+    letter-spacing: 1px; z-index: 100; pointer-events: none;
+  }
+
+  /* Route legend */
+  #legend {
+    position: absolute; bottom: 24px; left: 16px;
+    background: rgba(26,26,46,0.9);
+    padding: 10px 14px; border-radius: 8px;
+    z-index: 100;
+    display: flex; gap: 16px;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: #ccc; cursor: pointer;
+    transition: opacity 0.3s;
+  }
+  .legend-item.dimmed { opacity: 0.3; }
+  .legend-item .line {
+    width: 20px; height: 3px; border-radius: 2px;
+  }
+
+  #toggle-sidebar {
+    display: none;
+    position: absolute; top: 16px; left: 16px;
+    z-index: 200;
+    background: rgba(26,26,46,0.9);
+    color: #fff; border: 1px solid #2ecc71;
+    padding: 8px 12px; border-radius: 6px;
+    font-size: 13px; cursor: pointer;
+  }
+
+  @media (max-width: 768px) {
+    #sidebar {
+      position: absolute; left: 0; top: 0; bottom: 0;
+      width: 280px; min-width: 280px;
+      transform: translateX(-100%);
+      transition: transform 0.3s;
+    }
+    #sidebar.open { transform: translateX(0); }
+    #toggle-sidebar { display: block; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <button id="toggle-sidebar" onclick="toggleSidebar()">☰ 路线</button>
+
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <h1>🚲 成都骑行路线</h1>
+      <div class="subtitle" id="headerSub">东沙市井线 · 南线 · 西线</div>
+    </div>
+    <div id="route-tabs">
+      <div class="route-tab east active" onclick="switchRoute('east')"><span class="dot"></span>东沙市井线</div>
+      <div class="route-tab south" onclick="switchRoute('south')"><span class="dot"></span>南线</div>
+      <div class="route-tab west" onclick="switchRoute('west')"><span class="dot"></span>西线</div>
+    </div>
+    <div id="route-info" class="east">
+      <div class="stat"><span>途经点数</span><span id="infoCount">9</span></div>
+      <div class="stat"><span>区域</span><span id="infoArea">成华区 → 锦江区 → 青羊区</span></div>
+    </div>
+    <div id="waypoints">
+      <h3>途经点</h3>
+    </div>
+    <div id="sidebar-footer">
+      点击地图标记可跳转高德导航
+    </div>
+  </div>
+
+  <div id="map-container">
+    <div class="map-badge" id="mapBadge">🚲 东沙市井线</div>
+    <div id="legend">
+      <div class="legend-item" onclick="toggleRoute('east')"><span class="line" style="background:#2ecc71"></span>东沙市井线</div>
+      <div class="legend-item" onclick="toggleRoute('south')"><span class="line" style="background:#3498db"></span>南线</div>
+      <div class="legend-item" onclick="toggleRoute('west')"><span class="line" style="background:#e67e22"></span>西线</div>
+    </div>
+    <div id="map"></div>
+  </div>
+</div>
+
+<script>
+window._AMapSecurityConfig = { securityJsCode: '' };
+</script>
+<script src="https://webapi.amap.com/maps?v=2.0&key=01ca0c30a26db0ec367b121afdf640fc&plugin=AMap.PolyEditor"></script>
+<script>window._AMapSecurityConfig = { securityJsCode: '36756707db46ab35b7238da23387bf2b' };</script>
+<script>
+var ROUTES = {
+  east: {
+    name: "东沙市井线",
+    color: "#2ecc71",
+    area: "成华区 → 锦江区 → 青羊区",
+    points: [
+      { id:1, name:"三洞古桥公园", addr:"成都市成华区曲水路", lng:104.096427, lat:30.685497 },
+      { id:2, name:"建设路", addr:"成都市成华区建设路", lng:104.112672, lat:30.670955 },
+      { id:3, name:"麻石烟云公园", addr:"成都市成华区功博路33号", lng:104.114524, lat:30.665884 },
+      { id:4, name:"多宝寺公园", addr:"成都市成华区双庆路", lng:104.125535, lat:30.655491 },
+      { id:5, name:"五桂桥", addr:"成都市成华区五桂桥", lng:104.125048, lat:30.636221 },
+      { id:6, name:"古雅坡街", addr:"成都市锦江区古雅坡路", lng:104.119514, lat:30.635856 },
+      { id:7, name:"水井坊", addr:"成都市锦江区水井坊", lng:104.117262, lat:30.598726 },
+      { id:8, name:"金家坝", addr:"成都市青羊区金家坝", lng:104.062415, lat:30.674583 },
+      { id:9, name:"028.C", addr:"成都市青羊区斌升街28号", lng:104.058001, lat:30.661987 }
+    ]
+  },
+  south: {
+    name: "南线",
+    color: "#3498db",
+    area: "青羊区 → 武侯区 → 双流区",
+    points: [
+      { id:1, name:"万里桥", addr:"成都市青羊区万里桥", lng:104.060036, lat:30.647233 },
+      { id:2, name:"南河", addr:"成都市青羊区南河桥", lng:104.056767, lat:30.648476 },
+      { id:3, name:"武侯祠博物馆", addr:"成都市武侯区成都武侯祠博物馆", lng:104.047992, lat:30.646168 },
+      { id:4, name:"高升桥", addr:"成都市武侯区高升桥", lng:104.040849, lat:30.63966 },
+      { id:5, name:"华西坝", addr:"成都市武侯区华西坝", lng:104.066413, lat:30.642965 },
+      { id:6, name:"新南门", addr:"成都市武侯区新南门", lng:104.074222, lat:30.640797 },
+      { id:7, name:"衣冠庙", addr:"成都市武侯区衣冠庙", lng:104.053057, lat:30.635072 },
+      { id:8, name:"磨子桥", addr:"成都市武侯区磨子桥", lng:104.078525, lat:30.629367 },
+      { id:9, name:"肖家河", addr:"成都市武侯区肖家河街道", lng:104.04, lat:30.630614 },
+      { id:10, name:"科华北路", addr:"成都市武侯区科华北路", lng:104.076647, lat:30.625197 },
+      { id:11, name:"蓓蕾街", addr:"成都市武侯区蓓蕾街", lng:104.057096, lat:30.626528 },
+      { id:12, name:"二环", addr:"成都市武侯区二环路南三段", lng:104.055681, lat:30.620901 },
+      { id:13, name:"桐梓林", addr:"成都市武侯区桐梓林", lng:104.062492, lat:30.608184 },
+      { id:14, name:"成都南站", addr:"成都市武侯区成都南站", lng:104.068469, lat:30.60613 },
+      { id:15, name:"天府立交", addr:"成都市武侯区天府立交", lng:104.068818, lat:30.601368 },
+      { id:16, name:"机场高速", addr:"成都市双流区S6成都机场高速", lng:104.013728, lat:30.57776 }
+    ]
+  },
+  west: {
+    name: "西线",
+    color: "#e67e22",
+    area: "青羊区 → 锦江区",
+    points: [
+      { id:1, name:"正通顺街", addr:"成都市青羊区正通顺街", lng:104.079597, lat:30.670961 },
+      { id:2, name:"小关庙街", addr:"成都市青羊区小关庙街", lng:104.084037, lat:30.669001 },
+      { id:3, name:"新华大道德盛路", addr:"成都市青羊区新华大道德盛路", lng:104.07413, lat:30.671647 },
+      { id:4, name:"新华大道玉沙路", addr:"成都市青羊区新华大道玉沙路", lng:104.084444, lat:30.665007 },
+      { id:5, name:"内姜街", addr:"成都市青羊区内姜街", lng:104.075643, lat:30.663799 },
+      { id:6, name:"鼓楼南街", addr:"成都市青羊区鼓楼南街", lng:104.072272, lat:30.661649 },
+      { id:7, name:"岳府街", addr:"成都市锦江区岳府街", lng:104.081471, lat:30.66195 },
+      { id:8, name:"惜字宫南街", addr:"成都市锦江区惜字宫南街", lng:104.085787, lat:30.659842 },
+      { id:9, name:"华兴东街", addr:"成都市锦江区华兴东街", lng:104.08073, lat:30.658971 },
+      { id:10, name:"华兴正街", addr:"成都市锦江区华兴正街", lng:104.079454, lat:30.659567 },
+      { id:11, name:"顺城大街", addr:"成都市青羊区顺城大街", lng:104.071438, lat:30.662628 },
+      { id:12, name:"春熙路", addr:"成都市锦江区春熙路", lng:104.078643, lat:30.657952 },
+      { id:13, name:"大慈寺", addr:"成都市锦江区大慈寺", lng:104.082267, lat:30.656574 },
+      { id:14, name:"东大街", addr:"成都市锦江区东大街", lng:104.083653, lat:30.649739 },
+      { id:15, name:"红星路", addr:"成都市锦江区红星路四段", lng:104.076424, lat:30.64973 },
+      { id:16, name:"滨江中路", addr:"成都市锦江区滨江中路", lng:104.070314, lat:30.646495 }
+    ]
+  }
+};
+
+var map, currentRoute = 'east';
+var routeLayers = {}; // { east: {polyline, markers}, south: {...}, west: {...} }
+
+function init() {
+  map = new AMap.Map('map', {
+    center: [104.092, 30.642],
+    zoom: 13,
+    mapStyle: 'amap://styles/darkblue',
+    viewMode: '3D',
+    pitch: 45
+  });
+
+  // Build all route layers
+  Object.keys(ROUTES).forEach(function(key) {
+    buildRouteLayer(key);
+  });
+
+  // Show east by default
+  showRoute('east');
+  switchRoute('east');
+}
+
+function buildRouteLayer(key) {
+  var route = ROUTES[key];
+  var layer = { markers: [], labelMarkers: [] };
+
+  // Polyline
+  var path = route.points.map(function(p) { return [p.lng, p.lat]; });
+  layer.polyline = new AMap.Polyline({
+    path: path,
+    strokeColor: route.color,
+    strokeWeight: 4,
+    strokeOpacity: 0.8,
+    strokeStyle: 'solid',
+    lineJoin: 'round',
+    lineCap: 'round',
+    showDir: true,
+    dirColor: '#fff',
+    zIndex: 50
+  });
+
+  // Markers
+  route.points.forEach(function(wp, i) {
+    var content = document.createElement('div');
+    content.style.cssText =
+      'width:32px;height:32px;border-radius:50%;' +
+      'background:' + route.color + ';color:#fff;' +
+      'display:flex;align-items:center;justify-content:center;' +
+      'font-size:14px;font-weight:700;' +
+      'border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);' +
+      'cursor:pointer;';
+    content.innerHTML = wp.id;
+    content.title = wp.name;
+
+    var marker = new AMap.Marker({
+      position: [wp.lng, wp.lat],
+      content: content,
+      offset: new AMap.Pixel(-16, -16),
+      zIndex: 100 - i
+    });
+
+    marker.on('click', function() {
+      var url = 'https://uri.amap.com/navigation?to=' + wp.lng + ',' + wp.lat + ',' + encodeURIComponent(wp.name) + '&mode=bicycle&callnative=1';
+      window.open(url, '_blank');
+    });
+
+    layer.markers.push(marker);
+
+    // Label
+    var labelEl = document.createElement('div');
+    labelEl.style.cssText =
+      'background:rgba(26,26,46,0.85);color:' + route.color + ';' +
+      'padding:2px 8px;border-radius:4px;font-size:12px;white-space:nowrap;';
+    labelEl.textContent = wp.name;
+
+    var labelMarker = new AMap.Marker({
+      position: [wp.lng, wp.lat],
+      offset: new AMap.Pixel(-40, 22),
+      content: labelEl,
+      zIndex: 90 - i
+    });
+    layer.labelMarkers.push(labelMarker);
+  });
+
+  routeLayers[key] = layer;
+}
+
+function showRoute(key) {
+  var layer = routeLayers[key];
+  if (!layer) return;
+  layer.polyline.setMap(map);
+  layer.markers.forEach(function(m) { m.setMap(map); });
+  layer.labelMarkers.forEach(function(m) { m.setMap(map); });
+}
+
+function hideRoute(key) {
+  var layer = routeLayers[key];
+  if (!layer) return;
+  layer.polyline.setMap(null);
+  layer.markers.forEach(function(m) { m.setMap(null); });
+  layer.labelMarkers.forEach(function(m) { m.setMap(null); });
+}
+
+var visibleRoutes = { east: true, south: true, west: true };
+
+function toggleRoute(key) {
+  if (visibleRoutes[key]) {
+    hideRoute(key);
+    visibleRoutes[key] = false;
+  } else {
+    showRoute(key);
+    visibleRoutes[key] = true;
+  }
+  updateLegend();
+}
+
+function updateLegend() {
+  document.querySelectorAll('.legend-item').forEach(function(item, i) {
+    var keys = ['east','south','west'];
+    if (!visibleRoutes[keys[i]]) item.classList.add('dimmed');
+    else item.classList.remove('dimmed');
+  });
+}
+
+function switchRoute(key) {
+  currentRoute = key;
+  var route = ROUTES[key];
+
+  // Update tabs
+  document.querySelectorAll('.route-tab').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelector('.route-tab.' + key).classList.add('active');
+
+  // Update info panel
+  var infoEl = document.getElementById('route-info');
+  infoEl.className = key;
+  document.getElementById('infoCount').textContent = route.points.length;
+  document.getElementById('infoArea').textContent = route.area;
+
+  // Update badge
+  document.getElementById('mapBadge').textContent = '🚲 ' + route.name;
+  document.getElementById('mapBadge').style.color = route.color;
+
+  // Rebuild sidebar
+  buildSidebar(key);
+
+  // Fly to route
+  fitRouteBounds(key);
+}
+
+function buildSidebar(key) {
+  var route = ROUTES[key];
+  var container = document.getElementById('waypoints');
+  container.innerHTML = '<h3>途经点</h3>';
+
+  route.points.forEach(function(wp) {
+    var div = document.createElement('div');
+    div.className = 'waypoint';
+    div.setAttribute('data-id', wp.id);
+    div.innerHTML =
+      '<div class="wp-num ' + key + '">' + wp.id + '</div>' +
+      '<div class="wp-info">' +
+        '<div class="wp-name">' + wp.name + '</div>' +
+        '<div class="wp-addr">' + wp.addr + '</div>' +
+      '</div>';
+    div.onclick = function() {
+      map.setZoomAndCenter(16, [wp.lng, wp.lat]);
+      document.querySelectorAll('.waypoint').forEach(function(el) { el.classList.remove('active'); });
+      div.classList.add('active');
+    };
+    container.appendChild(div);
+  });
+}
+
+function fitRouteBounds(key) {
+  var route = ROUTES[key];
+  var lngs = route.points.map(function(w) { return w.lng; });
+  var lats = route.points.map(function(w) { return w.lat; });
+  var sw = [Math.min.apply(null, lngs), Math.min.apply(null, lats)];
+  var ne = [Math.max.apply(null, lngs), Math.max.apply(null, lats)];
+  map.setBounds(new AMap.Bounds(sw, ne), false, [100, 80, 100, 80]);
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
+
+window.onload = init;
+</script>
+</body>
+</html>
