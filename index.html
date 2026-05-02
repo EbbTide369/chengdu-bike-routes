@@ -391,6 +391,11 @@ function updateLegend() {
 }
 
 function switchRoute(key) {
+  // Hide old, show new
+  Object.keys(ROUTES).forEach(function(k) {
+    if (k !== key) hideRoute(k);
+  });
+  showRoute(key);
   currentRoute = key;
   var route = ROUTES[key];
 
