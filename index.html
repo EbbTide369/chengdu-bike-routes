@@ -187,9 +187,9 @@
   <div id="map-container">
     <div class="map-badge" id="mapBadge">🚲 东沙市井线</div>
     <div id="legend">
-      <div class="legend-item" onclick="toggleRoute('east')"><span class="line" style="background:#2ecc71"></span>东沙市井线</div>
-      <div class="legend-item" onclick="toggleRoute('south')"><span class="line" style="background:#3498db"></span>南线</div>
-      <div class="legend-item" onclick="toggleRoute('west')"><span class="line" style="background:#e67e22"></span>西线</div>
+      <div class="legend-item" onclick="switchRoute('east')"><span class="line" style="background:#2ecc71"></span>东沙市井线</div>
+      <div class="legend-item" onclick="switchRoute('south')"><span class="line" style="background:#3498db"></span>南线</div>
+      <div class="legend-item" onclick="switchRoute('west')"><span class="line" style="background:#e67e22"></span>西线</div>
     </div>
     <div id="map"></div>
   </div>
@@ -278,23 +278,28 @@ function init() {
     pitch: 45
   });
 
-  // Build all route layers
-  Object.keys(ROUTES).forEach(function(key) {
-    buildRouteLayer(key);
-  });
-
   // Show east by default
-  showRoute('east');
   switchRoute('east');
+}
+
+var activeLayer = null; // { key, polyline, markers, labelMarkers }
+
+function clearActiveLayer() {
+  if (!activeLayer) return;
+  if (activeLayer.polyline) { activeLayer.polyline.setMap(null); activeLayer.polyline = null; }
+  if (activeLayer.markers) { activeLayer.markers.forEach(function(m) { m.setMap(null); }); }
+  if (activeLayer.labelMarkers) { activeLayer.labelMarkers.forEach(function(m) { m.setMap(null); }); }
+  activeLayer = null;
 }
 
 function buildRouteLayer(key) {
   var route = ROUTES[key];
-  var layer = { markers: [], labelMarkers: [] };
+  var markers = [], labelMarkers = [];
 
   // Polyline
   var path = route.points.map(function(p) { return [p.lng, p.lat]; });
-  layer.polyline = new AMap.Polyline({
+  var polyline = new AMap.Polyline({
+    map: map,
     path: path,
     strokeColor: route.color,
     strokeWeight: 4,
@@ -318,21 +323,22 @@ function buildRouteLayer(key) {
       'border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);' +
       'cursor:pointer;';
     content.innerHTML = wp.id;
-    content.title = wp.name;
 
     var marker = new AMap.Marker({
+      map: map,
       position: [wp.lng, wp.lat],
       content: content,
       offset: new AMap.Pixel(-16, -16),
       zIndex: 100 - i
     });
 
-    marker.on('click', function() {
-      var url = 'https://uri.amap.com/navigation?to=' + wp.lng + ',' + wp.lat + ',' + encodeURIComponent(wp.name) + '&mode=bicycle&callnative=1';
-      window.open(url, '_blank');
-    });
+    (function(markerRef, wpRef) {
+      markerRef.on('click', function() {
+        window.open('https://uri.amap.com/navigation?to=' + wpRef.lng + ',' + wpRef.lat + ',' + encodeURIComponent(wpRef.name) + '&mode=bicycle&callnative=1', '_blank');
+      });
+    })(marker, wp);
 
-    layer.markers.push(marker);
+    markers.push(marker);
 
     // Label
     var labelEl = document.createElement('div');
@@ -342,60 +348,23 @@ function buildRouteLayer(key) {
     labelEl.textContent = wp.name;
 
     var labelMarker = new AMap.Marker({
+      map: map,
       position: [wp.lng, wp.lat],
       offset: new AMap.Pixel(-40, 22),
       content: labelEl,
       zIndex: 90 - i
     });
-    layer.labelMarkers.push(labelMarker);
+    labelMarkers.push(labelMarker);
   });
 
-  routeLayers[key] = layer;
-}
-
-function showRoute(key) {
-  var layer = routeLayers[key];
-  if (!layer) return;
-  layer.polyline.setMap(map);
-  layer.markers.forEach(function(m) { m.setMap(map); });
-  layer.labelMarkers.forEach(function(m) { m.setMap(map); });
-}
-
-function hideRoute(key) {
-  var layer = routeLayers[key];
-  if (!layer) return;
-  layer.polyline.setMap(null);
-  layer.markers.forEach(function(m) { m.setMap(null); });
-  layer.labelMarkers.forEach(function(m) { m.setMap(null); });
-}
-
-var visibleRoutes = { east: true, south: true, west: true };
-
-function toggleRoute(key) {
-  if (visibleRoutes[key]) {
-    hideRoute(key);
-    visibleRoutes[key] = false;
-  } else {
-    showRoute(key);
-    visibleRoutes[key] = true;
-  }
-  updateLegend();
-}
-
-function updateLegend() {
-  document.querySelectorAll('.legend-item').forEach(function(item, i) {
-    var keys = ['east','south','west'];
-    if (!visibleRoutes[keys[i]]) item.classList.add('dimmed');
-    else item.classList.remove('dimmed');
-  });
+  return { key: key, polyline: polyline, markers: markers, labelMarkers: labelMarkers };
 }
 
 function switchRoute(key) {
-  // Hide old, show new
-  Object.keys(ROUTES).forEach(function(k) {
-    if (k !== key) hideRoute(k);
-  });
-  showRoute(key);
+  // Destroy old layer
+  clearActiveLayer();
+  // Build and show new layer
+  activeLayer = buildRouteLayer(key);
   currentRoute = key;
   var route = ROUTES[key];
 
